@@ -12,8 +12,7 @@
   "incognito": "spanning",
   "permissions": [
     "tabs",
-    "http://*/*",
-    "https://*/*",
+    "<all_urls>",
     "webRequest",
     "webRequestBlocking",
     "storage",
