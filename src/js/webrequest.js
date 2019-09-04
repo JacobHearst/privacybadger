@@ -52,9 +52,7 @@ function onBeforeRequest(details) {
 
   if (type == "main_frame") {
     forgetTab(tab_id);
-
     badger.recordFrame(tab_id, frame_id, url);
-
     return {};
   }
 
@@ -299,6 +297,37 @@ function onTabReplaced(addedTabId, removedTabId) {
   forgetTab(removedTabId);
   // Update the badge of the added tab, which was probably used for prerendering.
   badger.updateBadge(addedTabId);
+}
+
+/**
+ * We don't always get a "main_frame" details object in onBeforeRequest,
+ * so we need a fallback for (re)initializing tabData.
+ */
+function onNavigate(details) {
+  const tab_id = details.tabId,
+    url = details.url;
+
+  // main (top-level) frames only
+  if (details.frameId !== 0) {
+    return;
+  }
+
+  // forget but don't initialize on special browser/extension pages
+  if (utils.isRestrictedUrl(url)) {
+    forgetTab(tab_id);
+    return;
+  }
+
+  // webNavigation/webRequest event ordering is undefined
+  // don't reset tabData if already recorded a given tab ID/URL pair
+  if (badger.tabData.hasOwnProperty(tab_id)) {
+    if (badger.tabData[tab_id].frames[0].url == url) {
+      return;
+    }
+  }
+
+  forgetTab(tab_id);
+  badger.recordFrame(tab_id, 0, url);
 }
 
 /******** Utility Functions **********/
@@ -874,6 +903,8 @@ function startListeners() {
   chrome.tabs.onRemoved.addListener(onTabRemoved);
   chrome.tabs.onReplaced.addListener(onTabReplaced);
   chrome.runtime.onMessage.addListener(dispatcher);
+
+  chrome.webNavigation.onCommitted.addListener(onNavigate);
 }
 
 /************************************** exports */
